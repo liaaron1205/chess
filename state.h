@@ -10,11 +10,11 @@ using namespace std;
 class State{
     uint64_t board[2][NUM_PIECES];
 
-    Color to_move;
+    Player to_move;
 
     bool castle[2][2]; //0 = queen, 1 = king
 
-    int8_t enpassant;
+    string en_passant;
 
     uint_fast16_t half_moves;
     uint_fast16_t full_moves;
@@ -23,5 +23,5 @@ class State{
         State();
         State(string fen);
 
-        void print_board();
+        void print();
 };

@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <cstring>
+#include <string>
 
 using namespace std;
 
@@ -10,15 +11,15 @@ const string default_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -
 State::State() : State::State(default_fen) {}
 
 State::State(string fen) {
-    int fen_idx = 0;
+    uint64_t fen_idx = 0;
 
-    //Initialize bitboards to zero
+    // Initialize arrays to zero
     for (int i = 0; i<2; i++) {
         memset(board[i], 0, sizeof(board[i]));
-        memset(castle[i], 0, castle(board[i]));
+        memset(castle[i], 0, sizeof(castle[i]));
     }
 
-    //Process board
+    // Process board
     char file = 'a', rank = '8';
     while (fen[fen_idx] != ' '){
         char c = fen[fen_idx];
@@ -50,26 +51,57 @@ State::State(string fen) {
         }
         fen_idx++;
     }
-
-    //Process the player to move
-    if (fen[fen_idx]=='w') to_move = white;
-    else to_move = black;
-    fen_idx += 2;
-
-    if (fen[fen_idx]=='-'){
-
-    }
-
-
     fen_idx++;
 
-    //Process 
+    // Process the player to move
+    if (fen[fen_idx]=='w') to_move = Player::White;
+    else to_move = Player::Black;
+    fen_idx += 2;
 
+    // Process castling
+    if (fen[fen_idx]=='-') fen_idx++;
+    else{
+        while(fen[fen_idx] != ' '){
+            switch(fen[fen_idx]){
+                case 'K': castle[(int)Player::White][(int)CastleSide::King  ] = 1;
+                case 'Q': castle[(int)Player::White][(int)CastleSide::Queen ] = 1;
+                case 'k': castle[(int)Player::Black][(int)CastleSide::King  ] = 1;
+                case 'q': castle[(int)Player::Black][(int)CastleSide::Queen ] = 1;
+            }
+            fen_idx++;
+        }
+    }
+    fen_idx++;
+
+    // Process en-passant
+    en_passant = "";
+    while (fen[fen_idx] != ' '){
+        en_passant += string(1, fen[fen_idx]);
+        fen_idx++;
+    }
+    fen_idx++;
+
+    string half_move_string = "", full_move_string = "";
+
+    while (fen[fen_idx] != ' '){
+        half_move_string += string(1, fen[fen_idx]);
+        fen_idx++;
+    }
+    fen_idx++;
+
+    while (fen_idx < fen.length() && fen[fen_idx] != ' '){
+        full_move_string += string(1, fen[fen_idx]);
+        fen_idx++;
+    }
+    fen_idx++;
+
+    half_moves = stoi(half_move_string);
+    full_moves = stoi(full_move_string);
 }
 
-void State::print_board(){
-    for (int rank = '8'; rank >= '1' ; rank--){
-        for (int file = 'a'; file <= 'h'; file++){
+void State::print(){
+    for (char rank = '8'; rank >= '1' ; rank--){
+        for (char file = 'a'; file <= 'h'; file++){
             uint8_t bit_idx = file_rank_to_index(file, rank);
             uint64_t and_value = ((uint64_t)1 << bit_idx);
                  if (board[0][0] & and_value) cout << "p" ;
@@ -88,4 +120,11 @@ void State::print_board(){
         }
         cout << endl;
     }
+    cout << "K: " << castle[(int)Player::White][(int)CastleSide::King  ] << endl;
+    cout << "Q: " << castle[(int)Player::White][(int)CastleSide::Queen ] << endl;
+    cout << "k: " << castle[(int)Player::Black][(int)CastleSide::King  ] << endl;
+    cout << "q: " << castle[(int)Player::Black][(int)CastleSide::Queen ] << endl;
+    cout << en_passant << endl;
+    cout << half_moves << endl;
+    cout << full_moves << endl;
 }

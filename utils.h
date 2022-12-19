@@ -4,22 +4,23 @@
 
 using namespace std;
 
-enum Color{
-    black,
-    white
+enum class Player{
+    Black,
+    White
 };
 
-enum CastleSide{
-    
-}
+enum class CastleSide{
+    Queen,
+    King
+};
 
-enum Piece{
-    pawn,
-    knight,
-    bishop,
-    rook,
-    queen,
-    king
+enum class Piece{
+    Pawn,
+    Knight,
+    Bishop,
+    Rook,
+    Queen,
+    King
 };
 
 const int NUM_PIECES = 6;
