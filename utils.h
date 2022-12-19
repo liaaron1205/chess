@@ -25,8 +25,21 @@ enum class Piece{
 
 const int NUM_PIECES = 6;
 
-uint8_t file_rank_to_index( char file, char rank );
+uint8_t file_rank_to_idx( char file, char rank );
 
-uint8_t str_to_index( string pos );
+uint8_t str_to_idx( string pos );
 
-string index_to_str( uint8_t idx );
+uint64_t    bitset( uint8_t idx );
+uint64_t    bituns( uint8_t idx );
+bool        bitchk( uint64_t val, uint8_t idx );
+
+string idx_to_str( uint8_t idx );
+string idx_to_move( uint8_t from, uint8_t to );
+
+char get_file( string pos );
+char get_rank( string pos );
+
+char get_file( uint8_t idx );
+char get_rank( uint8_t idx );
+
+Player other_player( Player p );
