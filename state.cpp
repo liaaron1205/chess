@@ -118,7 +118,7 @@ State::State(const State& source, string move){
 
     en_passant = 64; 
     half_moves = source.half_moves + 1;
-    full_moves = source.full_moves + 1;
+    full_moves = source.full_moves;
 
     pieces = source.pieces;
 
@@ -143,12 +143,12 @@ State::State(const State& source, string move){
             }
             if (i == (int)Piece::Rook){
                 if (to_move == Player::White){
-                    if (from == str_to_idx("a1")) castle[(int)to_move][(int)CastleSide::Queen] = 0;
-                    if (from == str_to_idx("h1")) castle[(int)to_move][(int)CastleSide::King] = 0;
+                    if (from == str_to_idx("a1")) castle[(int)Player::White][(int)CastleSide::Queen] = 0;
+                    if (from == str_to_idx("h1")) castle[(int)Player::White][(int)CastleSide::King] = 0;
                 }
                 if (to_move == Player::Black){
-                    if (from == str_to_idx("a8")) castle[(int)to_move][(int)CastleSide::Queen] = 0;
-                    if (from == str_to_idx("h8")) castle[(int)to_move][(int)CastleSide::King] = 0;
+                    if (from == str_to_idx("a8")) castle[(int)Player::Black][(int)CastleSide::Queen] = 0;
+                    if (from == str_to_idx("h8")) castle[(int)Player::Black][(int)CastleSide::King] = 0;
                 }
             }
             break;
@@ -159,6 +159,17 @@ State::State(const State& source, string move){
             board[(int)other_player(to_move)][i] &= ~(bitset(to));
             pieces--;
             half_moves = 0;
+
+            if ( i == (int)Piece::Rook){
+                if (to_move == Player::White){
+                    if (to   == str_to_idx("a8")) castle[(int)Player::Black][(int)CastleSide::Queen] = 0;
+                    if (to   == str_to_idx("h8")) castle[(int)Player::Black][(int)CastleSide::King] = 0;
+                }
+                if (to_move == Player::Black){
+                    if (to   == str_to_idx("a1")) castle[(int)Player::White][(int)CastleSide::Queen] = 0;
+                    if (to   == str_to_idx("h1")) castle[(int)Player::White][(int)CastleSide::King] = 0;
+                }
+            }
         }
     }
     map<string, Piece> str_to_piece = {
@@ -228,7 +239,203 @@ void State::print(){
     cout << full_moves << endl;
 }
 
-void State::generate_moves(vector<string>& all_moves, vector<string>& take_moves){
+string State::to_fen(){
+    string ret = "";
+    for ( char rank = '8'; rank>='1'; rank-- ){
+        char empty = '0';
+        for ( char file = 'a'; file<='h'; file++ ){
+            uint8_t idx = file_rank_to_idx( file, rank );
+            char update_char = '.';
+            if ( bitchk( board[(int)Player::Black][(int)Piece::Pawn], idx ) )     update_char = 'p';
+            if ( bitchk( board[(int)Player::Black][(int)Piece::Knight], idx ) )   update_char = 'n';
+            if ( bitchk( board[(int)Player::Black][(int)Piece::Bishop], idx ) )   update_char = 'b';
+            if ( bitchk( board[(int)Player::Black][(int)Piece::Rook], idx ) )     update_char = 'r';
+            if ( bitchk( board[(int)Player::Black][(int)Piece::Queen], idx ) )    update_char = 'q';
+            if ( bitchk( board[(int)Player::Black][(int)Piece::King], idx ) )     update_char = 'k';
+            if ( bitchk( board[(int)Player::White][(int)Piece::Pawn], idx ) )     update_char = 'P';
+            if ( bitchk( board[(int)Player::White][(int)Piece::Knight], idx ) )   update_char = 'N';
+            if ( bitchk( board[(int)Player::White][(int)Piece::Bishop], idx ) )   update_char = 'B';
+            if ( bitchk( board[(int)Player::White][(int)Piece::Rook], idx ) )     update_char = 'R';
+            if ( bitchk( board[(int)Player::White][(int)Piece::Queen], idx ) )    update_char = 'Q';
+            if ( bitchk( board[(int)Player::White][(int)Piece::King], idx ) )     update_char = 'K';
+
+            if ( update_char == '.' ) empty++;
+            else {
+                if (empty != '0'){
+                    ret += string(1, empty);
+                    empty = '0';
+                }
+                ret += update_char;
+            }
+        }
+        if ( empty != '0' ) ret += string(1, empty);
+        if (rank != '1') ret += "/";
+    }
+    ret += " ";
+    ret += (to_move == Player::White) ? "w" : "b";
+    ret += " ";
+    bool any_castle = 0;
+    if ( castle[(int)Player::White][(int)CastleSide::King]) {
+        any_castle = 1;
+        ret += "K";
+    }
+    if ( castle[(int)Player::White][(int)CastleSide::Queen]) {
+        any_castle = 1;
+        ret += "Q";
+    }
+    if ( castle[(int)Player::Black][(int)CastleSide::King]) {
+        any_castle = 1;
+        ret += "k";
+    }
+    if ( castle[(int)Player::Black][(int)CastleSide::Queen]) {
+        any_castle = 1;
+        ret += "q";
+    }
+    if ( !any_castle ) ret += "-";
+
+    ret += " ";
+    ret += (en_passant == 64) ? "-" : idx_to_str(en_passant);
+    ret += " ";
+    ret += to_string(half_moves);
+    ret += " ";
+    ret += to_string(full_moves);
+
+    return ret;
+}
+
+bool State::is_check(bool invert){ //0: are you in check? 1: is the opponent in check?
+    Player p = to_move;
+    if (invert) p = other_player(p);
+
+    Player opp = other_player(p);
+
+    uint64_t allboards = 0ll;
+    for ( int i=0; i<2; i++ ) for ( int j = 0; j<NUM_PIECES; j++ ) allboards |= board[i][j];
+
+    for (int i = 0; i<64; i++){
+        if (bitchk(board[(int)p][(int)Piece::King], i)){
+            char rank = get_rank(i);
+            char file = get_file(i);
+            
+
+            // Pawns
+            if (p == Player::White) {
+                if (file-1 >= 'a' && bitchk( board[(int)Player::Black][(int)Piece::Pawn], file_rank_to_idx( file - 1, rank + 1 ))) return 1;
+                if (file+1 <= 'h' && bitchk( board[(int)Player::Black][(int)Piece::Pawn], file_rank_to_idx( file + 1, rank + 1 ))) return 1;
+            }
+            if (p == Player::Black) {
+                if (file-1 >= 'a' && bitchk( board[(int)Player::White][(int)Piece::Pawn], file_rank_to_idx( file - 1, rank - 1 ))) return 1;
+                if (file+1 <= 'h' && bitchk( board[(int)Player::White][(int)Piece::Pawn], file_rank_to_idx( file + 1, rank - 1 ))) return 1;
+            }
+
+            // Knights
+            if (file-1 >= 'a' && rank-2 >= '1' && bitchk( board[(int)opp][(int)Piece::Knight], file_rank_to_idx( file - 1, rank - 2 ))) return 1;
+            if (file-1 >= 'a' && rank+2 <= '8' && bitchk( board[(int)opp][(int)Piece::Knight], file_rank_to_idx( file - 1, rank + 2 ))) return 1;
+            if (file+1 <= 'h' && rank-2 >= '1' && bitchk( board[(int)opp][(int)Piece::Knight], file_rank_to_idx( file + 1, rank - 2 ))) return 1;
+            if (file+1 <= 'h' && rank+2 <= '8' && bitchk( board[(int)opp][(int)Piece::Knight], file_rank_to_idx( file + 1, rank + 2 ))) return 1;
+            if (file-2 >= 'a' && rank-1 >= '1' && bitchk( board[(int)opp][(int)Piece::Knight], file_rank_to_idx( file - 2, rank - 1 ))) return 1;
+            if (file-2 >= 'a' && rank+1 <= '8' && bitchk( board[(int)opp][(int)Piece::Knight], file_rank_to_idx( file - 2, rank + 1 ))) return 1;
+            if (file+2 <= 'h' && rank-1 >= '1' && bitchk( board[(int)opp][(int)Piece::Knight], file_rank_to_idx( file + 2, rank - 1 ))) return 1;
+            if (file+2 <= 'h' && rank+1 <= '8' && bitchk( board[(int)opp][(int)Piece::Knight], file_rank_to_idx( file + 2, rank + 1 ))) return 1;
+
+             // King
+            if (file-1 >= 'a' && rank-1 >= '1' && bitchk( board[(int)opp][(int)Piece::King], file_rank_to_idx( file - 1, rank - 1 ))) return 1;
+            if (file-1 >= 'a' && rank+1 <= '8' && bitchk( board[(int)opp][(int)Piece::King], file_rank_to_idx( file - 1, rank + 1 ))) return 1;
+            if (file+1 <= 'h' && rank-1 >= '1' && bitchk( board[(int)opp][(int)Piece::King], file_rank_to_idx( file + 1, rank - 1 ))) return 1;
+            if (file+1 <= 'h' && rank+1 <= '8' && bitchk( board[(int)opp][(int)Piece::King], file_rank_to_idx( file + 1, rank + 1 ))) return 1;
+            if (file-1 >= 'a' && bitchk( board[(int)opp][(int)Piece::King], file_rank_to_idx( file - 1, rank ))) return 1;
+            if (rank-1 >= '1' && bitchk( board[(int)opp][(int)Piece::King], file_rank_to_idx( file, rank - 1 ))) return 1;
+            if (file+1 <= 'h' && bitchk( board[(int)opp][(int)Piece::King], file_rank_to_idx( file + 1, rank ))) return 1;
+            if (rank+1 <= '8' && bitchk( board[(int)opp][(int)Piece::King], file_rank_to_idx( file, rank + 1 ))) return 1;
+
+            // NE Diagonal
+            for (uint8_t k = 1; file+k<='h' && rank+k<='8'; k++){
+                uint64_t idx = file_rank_to_idx(file + k, rank + k);
+                if (bitchk(board[(int)opp][(int)Piece::Bishop], idx) || bitchk(board[(int)opp][(int)Piece::Queen], idx)) return 1;
+                else if (bitchk(allboards, idx)) break;
+            }
+            // SE Diagonal
+            for (uint8_t k = 1; file+k<='h' && rank-k>='1'; k++){
+                uint64_t idx = file_rank_to_idx(file + k, rank - k);
+                if (bitchk(board[(int)opp][(int)Piece::Bishop], idx) || bitchk(board[(int)opp][(int)Piece::Queen], idx)) return 1;
+                else if (bitchk(allboards, idx)) break;
+            }
+            // NW Diagonal
+            for (uint8_t k = 1; file-k>='a' && rank+k<='8'; k++){
+                uint64_t idx = file_rank_to_idx(file - k, rank + k);
+                if (bitchk(board[(int)opp][(int)Piece::Bishop], idx) || bitchk(board[(int)opp][(int)Piece::Queen], idx)) return 1;
+                else if (bitchk(allboards, idx)) break;
+            }
+            // SW Diagonal
+            for (uint8_t k = 1; file-k>='a' && rank-k>='1'; k++){
+                uint64_t idx = file_rank_to_idx(file - k, rank - k);
+                if (bitchk(board[(int)opp][(int)Piece::Bishop], idx) || bitchk(board[(int)opp][(int)Piece::Queen], idx)) return 1;
+                else if (bitchk(allboards, idx)) break;
+            }
+            // East
+            for (uint8_t k = 1; file+k<='h'; k++){
+                uint64_t idx = file_rank_to_idx(file + k, rank);
+                if (bitchk(board[(int)opp][(int)Piece::Rook], idx) || bitchk(board[(int)opp][(int)Piece::Queen], idx)) return 1;
+                else if (bitchk(allboards, idx)) break;
+            }
+            // North
+            for (uint8_t k = 1; rank+k<='8'; k++){
+                uint64_t idx = file_rank_to_idx(file, rank + k);
+                if (bitchk(board[(int)opp][(int)Piece::Rook], idx) || bitchk(board[(int)opp][(int)Piece::Queen], idx)) return 1;
+                else if (bitchk(allboards, idx)) break;
+            }
+            // West
+            for (uint8_t k = 1; file-k>='a'; k++){
+                uint64_t idx = file_rank_to_idx(file - k, rank);
+                if (bitchk(board[(int)opp][(int)Piece::Rook], idx) || bitchk(board[(int)opp][(int)Piece::Queen], idx)) return 1;
+                else if (bitchk(allboards, idx)) break;
+            }
+            // South
+            for (uint8_t k = 1; rank-k>='1'; k++){
+                uint64_t idx = file_rank_to_idx(file, rank - k);
+                if (bitchk(board[(int)opp][(int)Piece::Rook], idx) || bitchk(board[(int)opp][(int)Piece::Queen], idx)) return 1;
+                else if (bitchk(allboards, idx)) break;
+            }
+            
+        }
+    }
+    return 0;
+}
+
+void State::process_move (string move, vector<string>& all_moves, vector<string>& take_moves, vector<State>& all_states, vector<State>& take_states){
+    State result = State(*this, move);
+    bool capture = result.pieces != pieces;
+    
+
+    if (!result.is_check(1)){
+        if (move == "e1c1" && to_move == Player::White && castle[(int)Player::White][(int)CastleSide::Queen]){
+            State tmp_result = State(*this, "e1d1");
+            if ( is_check() || tmp_result.is_check(1)) return;
+        }
+        if (move == "e1g1" && to_move == Player::White && castle[(int)Player::White][(int)CastleSide::King]) {
+             State tmp_result = State(*this, "e1f1");
+            if ( is_check() || tmp_result.is_check(1)) return;
+        }
+        if (move == "e8c8" && to_move == Player::Black && castle[(int)Player::Black][(int)CastleSide::Queen]){
+            State tmp_result = State(*this, "e8d8");
+            if ( is_check() || tmp_result.is_check(1)) return;
+        }
+        if (move == "e8g8" && to_move == Player::Black && castle[(int)Player::Black][(int)CastleSide::King]) {
+            State tmp_result = State(*this, "e8f8");
+            if ( is_check() || tmp_result.is_check(1)) return;
+        }
+
+        all_moves.push_back(move);
+        all_states.push_back(result);
+        if (capture){
+            take_moves.push_back(move);
+            take_states.push_back(result);
+        }
+    }
+}
+
+
+void State::generate_moves(vector<string>& all_moves, vector<string>& take_moves, vector<State>& all_states, vector<State>& take_states){
     bool you = (bool)to_move;
     bool opp = 1 - (bool)to_move;
 
@@ -240,29 +447,125 @@ void State::generate_moves(vector<string>& all_moves, vector<string>& take_moves
 
     uint64_t boards[2] = {0ll, 0ll};
     for ( int i=0; i<2; i++ ) for ( int j = 0; j<NUM_PIECES; j++ ) boards[i] |= board[i][j];
+    uint64_t allboards = boards[0] | boards[1];
 
-    // Pawns
-    uint64_t pawn_board = board[you][(int)Piece::Pawn];
+
     for ( uint8_t i = 0; i < 64; i++ ){
-        if ( pawn_board & (1ull << i) ){
-            // Default
-            if (get_rank(i) != far_rank) {
-                vector<string> promotion_suffix;
-                if (get_rank(i) == far_rank + backward * i) promotion_suffix = {"k", "b", "r", "q"};
-                if (!((boards[0] | boards[1]) & bitset(i + forward * 8))) all_moves.push_back( idx_to_move(i, i + forward*8) );
+        char file = get_file(i), rank = get_rank(i);
+        if ( bitchk(board[you][(int)Piece::Pawn], i) && rank != far_rank){
+            vector<string> promotion_suffix = {""};
+            if (rank == far_rank + backward) promotion_suffix = {"n", "b", "r", "q"};
+            if (!bitchk(allboards, file_rank_to_idx(file, rank+forward))) for (string suffix : promotion_suffix) process_move( file_rank_to_move(file, rank, file, rank+forward) + suffix, all_moves, take_moves, all_states, take_states );
 
-                // Left 
-                if ((get_file(i) > 'a') && (boards[opp] & bitset(i + forward * 8 - 1))) {
-                    all_moves.push_back( idx_to_move( i, i + forward*8 - 1 ));
-                    take_moves.push_back( idx_to_move( i, i + forward*8 - 1 ));
+            if ( file - 1 >= 'a' && (bitchk(boards[opp], file_rank_to_idx( file - 1, rank + forward)) || en_passant == file_rank_to_idx( file - 1, rank + forward ))) for (string suffix : promotion_suffix) process_move( file_rank_to_move(file, rank, file-1, rank+forward) + suffix, all_moves, take_moves, all_states, take_states );
+            if ( file + 1 <= 'h' && (bitchk(boards[opp], file_rank_to_idx( file + 1, rank + forward)) || en_passant == file_rank_to_idx( file + 1, rank + forward ))) for (string suffix : promotion_suffix) process_move( file_rank_to_move(file, rank, file+1, rank+forward) + suffix, all_moves, take_moves, all_states, take_states );
+
+            if (rank == close_rank + forward && !bitchk(allboards, file_rank_to_idx(file, rank+forward)) && !bitchk(allboards, file_rank_to_idx(file, rank+2*forward))) process_move( file_rank_to_move(file, rank, file, rank+2*forward), all_moves, take_moves, all_states, take_states );
+        }
+        if ( bitchk(board[you][(int)Piece::Knight], i) ){
+            if (file-1 >= 'a' && rank-2 >= '1' && !bitchk( boards[you], file_rank_to_idx( file - 1, rank - 2 ))) process_move( file_rank_to_move( file, rank, file - 1, rank - 2 ), all_moves, take_moves, all_states, take_states);
+            if (file-1 >= 'a' && rank+2 <= '8' && !bitchk( boards[you], file_rank_to_idx( file - 1, rank + 2 ))) process_move( file_rank_to_move( file, rank, file - 1, rank + 2 ), all_moves, take_moves, all_states, take_states);
+            if (file+1 <= 'h' && rank-2 >= '1' && !bitchk( boards[you], file_rank_to_idx( file + 1, rank - 2 ))) process_move( file_rank_to_move( file, rank, file + 1, rank - 2 ), all_moves, take_moves, all_states, take_states);
+            if (file+1 <= 'h' && rank+2 <= '8' && !bitchk( boards[you], file_rank_to_idx( file + 1, rank + 2 ))) process_move( file_rank_to_move( file, rank, file + 1, rank + 2 ), all_moves, take_moves, all_states, take_states);
+            if (file-2 >= 'a' && rank-1 >= '1' && !bitchk( boards[you], file_rank_to_idx( file - 2, rank - 1 ))) process_move( file_rank_to_move( file, rank, file - 2, rank - 1 ), all_moves, take_moves, all_states, take_states);
+            if (file-2 >= 'a' && rank+1 <= '8' && !bitchk( boards[you], file_rank_to_idx( file - 2, rank + 1 ))) process_move( file_rank_to_move( file, rank, file - 2, rank + 1 ), all_moves, take_moves, all_states, take_states);
+            if (file+2 <= 'h' && rank-1 >= '1' && !bitchk( boards[you], file_rank_to_idx( file + 2, rank - 1 ))) process_move( file_rank_to_move( file, rank, file + 2, rank - 1 ), all_moves, take_moves, all_states, take_states);
+            if (file+2 <= 'h' && rank+1 <= '8' && !bitchk( boards[you], file_rank_to_idx( file + 2, rank + 1 ))) process_move( file_rank_to_move( file, rank, file + 2, rank + 1 ), all_moves, take_moves, all_states, take_states);
+        }
+        if ( bitchk(board[you][(int)Piece::King], i) ) {
+            if (file-1 >= 'a' && rank-1 >= '1' && !bitchk( boards[you], file_rank_to_idx( file - 1, rank - 1 ))) process_move( file_rank_to_move( file, rank, file - 1, rank - 1 ), all_moves, take_moves, all_states, take_states);
+            if (file-1 >= 'a' && rank+1 <= '8' && !bitchk( boards[you], file_rank_to_idx( file - 1, rank + 1 ))) process_move( file_rank_to_move( file, rank, file - 1, rank + 1 ), all_moves, take_moves, all_states, take_states);
+            if (file+1 <= 'h' && rank-1 >= '1' && !bitchk( boards[you], file_rank_to_idx( file + 1, rank - 1 ))) process_move( file_rank_to_move( file, rank, file + 1, rank - 1 ), all_moves, take_moves, all_states, take_states);
+            if (file+1 <= 'h' && rank+1 <= '8' && !bitchk( boards[you], file_rank_to_idx( file + 1, rank + 1 ))) process_move( file_rank_to_move( file, rank, file + 1, rank + 1 ), all_moves, take_moves, all_states, take_states);
+            if (file-1 >= 'a' && !bitchk( boards[you], file_rank_to_idx( file - 1, rank ))) process_move( file_rank_to_move( file, rank, file - 1, rank ), all_moves, take_moves, all_states, take_states);
+            if (rank-1 >= '1' && !bitchk( boards[you], file_rank_to_idx( file, rank - 1 ))) process_move( file_rank_to_move( file, rank, file, rank - 1 ), all_moves, take_moves, all_states, take_states);
+            if (file+1 <= 'h' && !bitchk( boards[you], file_rank_to_idx( file + 1, rank ))) process_move( file_rank_to_move( file, rank, file + 1, rank ), all_moves, take_moves, all_states, take_states);
+            if (rank+1 <= '8' && !bitchk( boards[you], file_rank_to_idx( file, rank + 1 ))) process_move( file_rank_to_move( file, rank, file, rank + 1 ), all_moves, take_moves, all_states, take_states);
+
+            if (to_move == Player::White){
+                if ( castle[you][(int)CastleSide::Queen] && !bitchk( allboards, file_rank_to_idx('b', '1')) && !bitchk( allboards, file_rank_to_idx('c', '1')) && !bitchk( allboards, file_rank_to_idx('d', '1')))  process_move( "e1c1", all_moves, take_moves, all_states, take_states);
+                if ( castle[you][(int)CastleSide::King] && !bitchk( allboards, file_rank_to_idx('f', '1')) && !bitchk( allboards, file_rank_to_idx('g', '1')))  process_move( "e1g1", all_moves, take_moves, all_states, take_states);
+            }
+            if (to_move == Player::Black){
+                if ( castle[you][(int)CastleSide::Queen] && !bitchk( allboards, file_rank_to_idx('b', '8')) && !bitchk( allboards, file_rank_to_idx('c', '8')) && !bitchk( allboards, file_rank_to_idx('d', '8')))  process_move( "e8c8", all_moves, take_moves, all_states, take_states);
+                if ( castle[you][(int)CastleSide::King] && !bitchk( allboards, file_rank_to_idx('f', '8')) && !bitchk( allboards, file_rank_to_idx('g', '8')))  process_move( "e8g8", all_moves, take_moves, all_states, take_states);
+            }    
+        }
+        if ( bitchk(board[you][(int)Piece::Bishop], i) || bitchk(board[you][(int)Piece::Queen], i) ){
+            // NE Diagonal
+            for (uint8_t k = 1; file+k<='h' && rank+k<='8'; k++){
+                uint64_t idx = file_rank_to_idx(file + k, rank + k);
+                if ( !bitchk( allboards, idx) ) process_move( file_rank_to_move( file, rank, file + k, rank + k ), all_moves, take_moves, all_states, take_states );
+                else {
+                    if ( bitchk(boards[opp], idx) ) process_move( file_rank_to_move( file, rank, file + k, rank + k ), all_moves, take_moves, all_states, take_states );
+                    break;
                 }
-                // Right
-                if ((get_file(i) < 'h') && (boards[opp] & bitset(i + forward * 8 + 1))) {
-                    all_moves.push_back( idx_to_move( i, i + forward*8 + 1 ));
-                    take_moves.push_back( idx_to_move( i, i + forward*8 + 1 ));
+            }
+            // SE Diagonal
+            for (uint8_t k = 1; file+k<='h' && rank-k>='1'; k++){
+                uint64_t idx = file_rank_to_idx(file + k, rank - k);
+                if ( !bitchk( allboards, idx) ) process_move( file_rank_to_move( file, rank, file + k, rank - k ), all_moves, take_moves, all_states, take_states );
+                else {
+                    if ( bitchk(boards[opp], idx) ) process_move( file_rank_to_move( file, rank, file + k, rank - k ), all_moves, take_moves, all_states, take_states );
+                    break;
+                }
+            }
+            // NW Diagonal
+            for (uint8_t k = 1; file-k>='a' && rank+k<='8'; k++){
+                uint64_t idx = file_rank_to_idx(file - k, rank + k);
+                if ( !bitchk( allboards, idx) ) process_move( file_rank_to_move( file, rank, file - k, rank + k ), all_moves, take_moves, all_states, take_states );
+                else {
+                    if ( bitchk(boards[opp], idx) ) process_move( file_rank_to_move( file, rank, file - k, rank + k ), all_moves, take_moves, all_states, take_states );
+                    break;
+                }
+            }
+            // SW Diagonal
+            for (uint8_t k = 1; file-k>='a' && rank-k>='1'; k++){
+                uint64_t idx = file_rank_to_idx(file - k, rank - k);
+                if ( !bitchk( allboards, idx) ) process_move( file_rank_to_move( file, rank, file - k, rank - k ), all_moves, take_moves, all_states, take_states );
+                else {
+                    if ( bitchk(boards[opp], idx) ) process_move( file_rank_to_move( file, rank, file - k, rank - k ), all_moves, take_moves, all_states, take_states );
+                    break;
                 }
             }
         }
-    }  
-    
+        if ( bitchk(board[you][(int)Piece::Rook], i) || bitchk(board[you][(int)Piece::Queen], i) ){
+            // East
+            for (uint8_t k = 1; file+k<='h'; k++){
+                uint64_t idx = file_rank_to_idx(file + k, rank);
+                if ( !bitchk( allboards, idx) ) process_move( file_rank_to_move( file, rank, file + k, rank ), all_moves, take_moves, all_states, take_states );
+                else {
+                    if ( bitchk(boards[opp], idx) ) process_move( file_rank_to_move( file, rank, file + k, rank  ), all_moves, take_moves, all_states, take_states );
+                    break;
+                }
+            }
+            // North
+            for (uint8_t k = 1; rank+k<='8'; k++){
+                uint64_t idx = file_rank_to_idx(file, rank + k);
+                if ( !bitchk( allboards, idx) ) process_move( file_rank_to_move( file, rank, file, rank + k ), all_moves, take_moves, all_states, take_states );
+                else {
+                    if ( bitchk(boards[opp], idx) ) process_move( file_rank_to_move( file, rank, file, rank + k ), all_moves, take_moves, all_states, take_states );
+                    break;
+                }
+            }
+            // West
+            for (uint8_t k = 1; file-k>='a'; k++){
+                uint64_t idx = file_rank_to_idx(file - k, rank);
+                if ( !bitchk( allboards, idx) ) process_move( file_rank_to_move( file, rank, file - k, rank ), all_moves, take_moves, all_states, take_states );
+                else {
+                    if ( bitchk(boards[opp], idx) ) process_move( file_rank_to_move( file, rank, file - k, rank ), all_moves, take_moves, all_states, take_states );
+                    break;
+                }
+            }
+            // South
+            for (uint8_t k = 1; rank-k>='1'; k++){
+                uint64_t idx = file_rank_to_idx(file, rank - k);
+                if ( !bitchk( allboards, idx) ) process_move( file_rank_to_move( file, rank, file, rank - k ), all_moves, take_moves, all_states, take_states );
+                else {
+                    if ( bitchk(boards[opp], idx) ) process_move( file_rank_to_move( file, rank, file, rank - k ), all_moves, take_moves, all_states, take_states );
+                    break;
+                }
+            }
+        }
+    }
 }

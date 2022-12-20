@@ -26,6 +26,7 @@ enum class Piece{
 const int NUM_PIECES = 6;
 
 uint8_t file_rank_to_idx( char file, char rank );
+string file_rank_to_move( char from_file, char from_rank, char to_file, char to_rank );
 
 uint8_t str_to_idx( string pos );
 

@@ -7,21 +7,56 @@
 
 using namespace std;
 
-int main(){
-    
-    //State s("rnbqkbnr/pp1ppppp/8/2p5/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2");
-    //State s("rnbqkbnr/pppppppp/8/8/8/4p3/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-    State s("8/5P2/8/8/8/8/8/8 w - - 0 1");
-    //State s;
+uint64_t count = 0;
 
-    s.print();
+
+
+uint64_t f( State s, int de){
+    uint64_t count = 0;
+    if (de == 0){
+        count++;
+        return 1;
+    }
+    vector<string> a, b;
+    vector<State> c, d;
+    s.generate_moves(a, b, c, d);
+    for ( auto x : c ) count += f(x, de-1);
+    return count;
+}
+
+void f_initial ( State s, int de ){
+    vector<string> a, b;
+    vector<State> c, d;
+    s.generate_moves(a, b, c, d);
+    for ( uint8_t i = 0; i< a.size(); i++ ){
+        cout << a[i] << " " << to_string(f(c[i], de-1)) << " " << c[i].to_fen() << endl;
+    }
+}
+
+int main(){ 
+    int x;
+    cin >> x;
+    // string inp;
+    // getline(cin, inp);
+    
+    // State s(inp);
+    State s("r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10");
+    cout << to_string(f(s, x)) << endl;
+    // f_initial( s, x );
+    // cout << to_string(count) << endl;
+    /*
+    string inp;
+    getline(cin, inp);
+    
+    State s(inp);
+
+    // cout << s.to_fen() << endl;
 
     vector<string> a, b;
+    vector<State> c, d;
 
-    State s1(s, "f7f8n");
-    s1.print();
-    // s.generate_moves(a, b);
+    s.generate_moves(a, b, c, d);
 
-    // cout << a.size() << endl;
-    for (auto x: a) cout << x << endl;
+    for ( auto x: c ) cout << x.to_fen() << endl;
+    */
 }

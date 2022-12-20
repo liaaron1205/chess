@@ -29,7 +29,11 @@ class State{
         State(const State& source, string move); //Create state by applying move to another state
 
         void print();
+        string to_fen();
 
-        void generate_moves(vector<string>& all_moves, vector<string>& take_moves);
+        bool is_check(bool invert = false); //0: are you in check? 1: is the opponent in check?
+
+        void process_move (string move, vector<string>& all_moves, vector<string>& take_moves, vector<State>& all_states, vector<State>& take_states);
+        void generate_moves(vector<string>& all_moves, vector<string>& take_moves, vector<State>& all_states, vector<State>& take_states);
 
 };

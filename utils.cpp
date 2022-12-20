@@ -7,6 +7,9 @@ uint8_t file_rank_to_idx(char file, char rank){
     uint8_t int_pos = (rank - '1') * 8 + (file - 'a');
     return int_pos;
 }
+string file_rank_to_move( char from_file, char from_rank, char to_file, char to_rank ){
+    return string(1, from_file) + string(1, from_rank) + string(1, to_file) +  string(1, to_rank);
+}
 
 uint8_t str_to_idx(string pos){
     char file = get_file(pos);
