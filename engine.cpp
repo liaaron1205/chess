@@ -14,13 +14,11 @@ Engine::Engine(string s){
 bool Engine::run(){
     string move;
     if (engine_player == current_state.get_to_move()){
-        cout << "engine move" << endl;
         minimax(current_state, 35, -INF, INF, 1, 1);
         move = move_choice;
         cout << move << endl;
     }
     else {
-        cout << "your move" << endl;
         cin >> move;
         if (move == "q") return 1;
     }
