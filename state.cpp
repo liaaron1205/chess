@@ -590,6 +590,10 @@ int State::evaluate (Player p){
         if ( bitchk( board[1 - (int)p][i], str_to_idx("d5") )) heuristic -= 4;
         if ( bitchk( board[1 - (int)p][i], str_to_idx("e4") )) heuristic -= 4;
         if ( bitchk( board[1 - (int)p][i], str_to_idx("d5") )) heuristic -= 4;
+
+        if (p == Player::White){
+            
+        }
     }
 
     return heuristic;

@@ -62,23 +62,25 @@ int Engine::minimax(State s, int depth, int alpha, int beta, bool maximize, bool
         int best = -INF;
         for (uint8_t i = 0; i<states.size(); i++){
             int candidate = minimax( states[i], depth - depth_modifier, alpha, beta, !maximize, 0);
+            if (moves[i] == "e1c1" || moves[i] == "e1g1" || moves[i] == "e8c8" || moves[i] == "e8g8" ) candidate += 8;
             if ( candidate > best ){
                 best = candidate;
                 if (top_level) move_choice = moves[i];
-
-                if ( candidate >= beta ) break;
-
-                alpha = max(alpha, candidate);
             }
+            if ( candidate >= beta ) break;
+
+            alpha = max(alpha, candidate);
         }
         return best;
     }
     else{
         int best = INF;
-        for (State s: states){
-            int candidate = minimax( s, depth - depth_modifier, alpha, beta, !maximize, 0);
-            best = min(best, candidate);
-
+       for (uint8_t i = 0; i<states.size(); i++){
+            int candidate = minimax( states[i], depth - depth_modifier, alpha, beta, !maximize, 0);
+            if (moves[i] == "e1c1" || moves[i] == "e1g1" || moves[i] == "e8c8" || moves[i] == "e8g8" ) candidate += 8;
+            if ( candidate < best ){
+                best = candidate;
+            }
             if ( candidate <= alpha ) break;
 
             beta = min(beta, candidate);
