@@ -43,10 +43,10 @@ int Engine::minimax(State s, int depth, int alpha, int beta, bool maximize, bool
 
     vector<string>& moves = all_moves;
     vector<State>&  states = all_states;
-    /*if (capture_states.size()){
+    if (capture_states.size()){
         moves = capture_moves;
         states = capture_states;
-    }*/
+    }
 
     int depth_modifier = 10;
     if (states.size() == 1) depth_modifier = 0;
@@ -62,7 +62,7 @@ int Engine::minimax(State s, int depth, int alpha, int beta, bool maximize, bool
         int best = -INF;
         for (uint8_t i = 0; i<states.size(); i++){
             int candidate = minimax( states[i], depth - depth_modifier, alpha, beta, !maximize, 0);
-            if (moves[i] == "e1c1" || moves[i] == "e1g1" || moves[i] == "e8c8" || moves[i] == "e8g8" ) candidate += 8;
+            if (moves[i] == "e1c1" || moves[i] == "e1g1" || moves[i] == "e8c8" || moves[i] == "e8g8" ) candidate += 16;
             if ( candidate > best ){
                 best = candidate;
                 if (top_level) move_choice = moves[i];
@@ -75,9 +75,9 @@ int Engine::minimax(State s, int depth, int alpha, int beta, bool maximize, bool
     }
     else{
         int best = INF;
-       for (uint8_t i = 0; i<states.size(); i++){
+        for (uint8_t i = 0; i<states.size(); i++){
             int candidate = minimax( states[i], depth - depth_modifier, alpha, beta, !maximize, 0);
-            if (moves[i] == "e1c1" || moves[i] == "e1g1" || moves[i] == "e8c8" || moves[i] == "e8g8" ) candidate += 8;
+            if (moves[i] == "e1c1" || moves[i] == "e1g1" || moves[i] == "e8c8" || moves[i] == "e8g8" ) candidate += 16;
             if ( candidate < best ){
                 best = candidate;
             }

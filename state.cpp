@@ -574,27 +574,43 @@ uint_fast16_t State::get_half_moves(){ return half_moves; }
 Player State::get_to_move(){ return to_move; }
 
 int State::evaluate (Player p){
-    int points[NUM_PIECES] = {10, 30, 30, 50, 90, 0};
+    int points[NUM_PIECES] = {1, 3, 3, 5, 9, 0};
+    int piece_weight = 30;
 
     int heuristic = 0;
+    int total_pieces = 0;
     for (int i = 0; i<NUM_PIECES; i++){
-        heuristic += points[i] * __builtin_popcount(board[(int)p][i]);
-        heuristic -= points[i] * __builtin_popcount(board[1 - (int)p][i]);
+        heuristic += points[i] * __builtin_popcountll(board[(int)p][i]) * piece_weight;
+        heuristic -= points[i] * __builtin_popcountll(board[1 - (int)p][i]) * piece_weight;
+
+        total_pieces += __builtin_popcountll(board[(int)p][i]) + __builtin_popcountll(board[1 - (int)p][i]);
 
 
-        if ( bitchk( board[(int)p][i], str_to_idx("d4") )) heuristic += 4;
-        if ( bitchk( board[(int)p][i], str_to_idx("d5") )) heuristic += 4;
-        if ( bitchk( board[(int)p][i], str_to_idx("e4") )) heuristic += 4;
-        if ( bitchk( board[(int)p][i], str_to_idx("d5") )) heuristic += 4;
-        if ( bitchk( board[1 - (int)p][i], str_to_idx("d4") )) heuristic -= 4;
-        if ( bitchk( board[1 - (int)p][i], str_to_idx("d5") )) heuristic -= 4;
-        if ( bitchk( board[1 - (int)p][i], str_to_idx("e4") )) heuristic -= 4;
-        if ( bitchk( board[1 - (int)p][i], str_to_idx("d5") )) heuristic -= 4;
+        const uint64_t mask1 = 0b0000000000000000000000000001100000011000000000000000000000000000;
+        const uint64_t mask2 = 0b0000000000000000001111000010010000100100001111000000000000000000;
+        const uint64_t mask3 = 0b0000000000000000110000111100001111000011110000110000000000000000;
 
-        if (p == Player::White){
+        if ( i != (int) Piece::King){
+            heuristic += 4 * __builtin_popcountll(board[(int)p][i] & mask1);
+            heuristic += 2 * __builtin_popcountll(board[(int)p][i] & mask2);
+            heuristic += 1 * __builtin_popcountll(board[(int)p][i] & mask3);
+        }
+    }
+
+    if ( castle[(int)p][(int)CastleSide::King] || castle[(int)p][(int)CastleSide::Queen] ) heuristic += 10;
+
+    if (total_pieces < 5){
+        for (int i = 0; i<64; i++){
             
+            if (bitchk(board[1 - (int)p][(int)Piece::King], i)){
+                int x = 3 * ( max(get_file(i) - 'a', 'h' - get_file(i)) + max(get_rank(i) - '1', '8' - get_rank(i))  - 8);
+                heuristic += x;
+            }
         }
     }
 
     return heuristic;
 }   
+
+
+
