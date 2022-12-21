@@ -14,7 +14,11 @@ Engine::Engine(string s){
 bool Engine::run(){
     string move;
     if (engine_player == current_state.get_to_move()){
-        minimax(current_state, 35, -INF, INF, 1, 1);
+        int ret = minimax(current_state, 35, -INF, INF, 1, 1);
+        if ( ret == -INF - 1) {
+            cout << "0-1" << endl;
+            return 1;
+        }
         move = move_choice;
         cout << move << endl;
     }
@@ -36,6 +40,7 @@ int Engine::minimax(State s, int depth, int alpha, int beta, bool maximize, bool
 
 
     if (all_moves.size()==0){
+        if (top_level) return -INF - 1;
         return -INF;
     }
     if ( s.get_half_moves() == 50 ){ return 0; }
@@ -58,6 +63,7 @@ int Engine::minimax(State s, int depth, int alpha, int beta, bool maximize, bool
         return s.evaluate(engine_player);
     }
 
+    move_choice= moves[0];
     if (maximize){
         int best = -INF;
         for (uint8_t i = 0; i<states.size(); i++){
