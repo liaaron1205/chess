@@ -569,3 +569,28 @@ void State::generate_moves(vector<string>& all_moves, vector<string>& take_moves
         }
     }
 }
+
+uint_fast16_t State::get_half_moves(){ return half_moves; }
+Player State::get_to_move(){ return to_move; }
+
+int State::evaluate (Player p){
+    int points[NUM_PIECES] = {10, 30, 30, 50, 90, 0};
+
+    int heuristic = 0;
+    for (int i = 0; i<NUM_PIECES; i++){
+        heuristic += points[i] * __builtin_popcount(board[(int)p][i]);
+        heuristic -= points[i] * __builtin_popcount(board[1 - (int)p][i]);
+
+
+        if ( bitchk( board[(int)p][i], str_to_idx("d4") )) heuristic += 4;
+        if ( bitchk( board[(int)p][i], str_to_idx("d5") )) heuristic += 4;
+        if ( bitchk( board[(int)p][i], str_to_idx("e4") )) heuristic += 4;
+        if ( bitchk( board[(int)p][i], str_to_idx("d5") )) heuristic += 4;
+        if ( bitchk( board[1 - (int)p][i], str_to_idx("d4") )) heuristic -= 4;
+        if ( bitchk( board[1 - (int)p][i], str_to_idx("d5") )) heuristic -= 4;
+        if ( bitchk( board[1 - (int)p][i], str_to_idx("e4") )) heuristic -= 4;
+        if ( bitchk( board[1 - (int)p][i], str_to_idx("d5") )) heuristic -= 4;
+    }
+
+    return heuristic;
+}   
